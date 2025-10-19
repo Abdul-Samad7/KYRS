@@ -7,8 +7,8 @@ st.set_page_config(page_title="ExoExplorer", layout="wide")
 st.title("🪐 ExoExplorer – Iteration 2: Ask the Data")
 
 st.markdown("""
-Now you can **ask questions** about NASA’s Kepler KOI dataset  
-using natural language — powered by **Gemini 1.5 Flash**.
+Now you can **ask questions** about NASA's Kepler KOI dataset  
+using natural language — powered by **Gemini 2.5 Flash**.
 """)
 
 df = load_data()

@@ -1,0 +1,42 @@
+# === Python & Build Artifacts ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+build/
+dist/
+
+# === Virtual Environments ===
+venv/
+env/
+.venv/
+streamlit-env/
+.idea/
+.vscode/
+
+# === Streamlit ===
+.streamlit/
+.streamlit/secrets.toml
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+
+# === Data Files ===
+!data/README.md  # keep documentation if you add one
+
+# === Logs & Temp ===
+*.log
+*.tmp
+*.bak
+
+# === Notebook Checkpoints ===
+.ipynb_checkpoints/
+
+# === API Keys or Credentials ===
+*.env
+.env.local
+.env.production
+secrets.json

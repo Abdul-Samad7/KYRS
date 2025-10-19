@@ -9,7 +9,7 @@ def load_data():
         st.error("❌ Missing file: data/kepler_koi.csv")
         st.stop()
     df = pd.read_csv(path)
-    df = df.dropna(subset=["koi_teq", "koi_prad"])
+    # Updated column names
+    df = df.dropna(subset=["equilibrium_temperature_kelvin", "planet_radius_earth_radii"])
     st.success(f"✅ Loaded {len(df):,} rows from Kepler KOI dataset.")
     return df
-

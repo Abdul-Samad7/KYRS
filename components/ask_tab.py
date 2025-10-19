@@ -2,6 +2,7 @@ import streamlit as st
 from backend.retriever import filter_dataframe
 from backend.gemini_agent import ask_gemini
 
+
 def render(df):
     st.header("💬 Ask the Data")
     st.markdown("""
@@ -18,5 +19,5 @@ Try examples like:
             st.write(f"**Data subset used:** {len(subset)} rows")
             st.dataframe(subset.head(5))
             answer = ask_gemini(query, subset)
-            st.markdown("### 🧠 Gemini’s Answer")
+            st.markdown("### 🧠 Gemini's Answer")
             st.write(answer)

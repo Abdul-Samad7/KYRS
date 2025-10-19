@@ -6,11 +6,12 @@ def filter_dataframe(df, query):
     query = query.lower()
     mask = pd.Series(True, index=df.index)
 
+    # Updated column name mappings
     synonyms = {
-        "temp": "koi_teq",
-        "temperature": "koi_teq",
-        "radius": "koi_prad",
-        "period": "koi_period"
+        "temp": "equilibrium_temperature_kelvin",
+        "temperature": "equilibrium_temperature_kelvin",
+        "radius": "planet_radius_earth_radii",
+        "period": "orbital_period_days"
     }
 
     # numeric comparisons
@@ -24,13 +25,13 @@ def filter_dataframe(df, query):
             elif "between" in query and len(nums) >= 2:
                 mask &= df[col].between(nums[0], nums[1])
 
-    # disposition keywords
+    # disposition keywords - updated column name
     if "confirmed" in query:
-        mask &= df["koi_disposition"].str.contains("CONFIRMED", case=False)
+        mask &= df["disposition_using_kepler_data"].str.contains("CONFIRMED", case=False)
     elif "candidate" in query:
-        mask &= df["koi_disposition"].str.contains("CANDIDATE", case=False)
+        mask &= df["disposition_using_kepler_data"].str.contains("CANDIDATE", case=False)
     elif "false" in query:
-        mask &= df["koi_disposition"].str.contains("FALSE", case=False)
+        mask &= df["disposition_using_kepler_data"].str.contains("FALSE", case=False)
 
     subset = df[mask]
     return subset if not subset.empty else df.head(5)
