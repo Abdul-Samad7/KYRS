@@ -1,9 +1,21 @@
 from google import genai
-import streamlit as st
+import os
 import pandas as pd
 import numpy as np
 
-client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+# Try to import streamlit, but make it optional
+try:
+    import streamlit as st
+    API_KEY = st.secrets.get("GEMINI_API_KEY")
+    HAS_STREAMLIT = True
+except (ImportError, FileNotFoundError, KeyError):
+    API_KEY = os.getenv('GEMINI_API_KEY')
+    HAS_STREAMLIT = False
+
+if not API_KEY:
+    raise ValueError("GEMINI_API_KEY not found. Set it in Streamlit secrets or as environment variable")
+
+client = genai.Client(api_key=API_KEY)
 
 def ask_gemini(question, context_df, style="brief"):
     """Ask Gemini a question using intelligent data sampling and statistics."""
@@ -57,7 +69,7 @@ QUESTION: {question}
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",  # Correct model name
+            model="gemini-2.5-flash",
             contents=prompt,
             config={
                 "temperature": 0.3,
@@ -77,8 +89,8 @@ def generate_statistics(df):
     stats_parts.append(f"Total rows: {len(df)}")
     stats_parts.append(f"Total columns: {len(df.columns)}")
     
-    # Analyze each column
-    for col in df.columns:
+    # Analyze each column (limit to prevent token overflow)
+    for col in list(df.columns)[:15]:  # Limit to first 15 columns
         dtype = df[col].dtype
         non_null_count = df[col].notna().sum()
         
@@ -114,18 +126,17 @@ def get_relevant_sample(df, question):
     question_lower = question.lower()
     
     # Adjust sample size based on dataset size and query type
-    # For specific object queries, we want more data for Gemini to search through
     if len(df) <= 100:
-        sample_size = len(df)  # Just send everything if small
+        sample_size = len(df)
     elif len(df) <= 300:
-        sample_size = len(df)  # Send all if medium-sized (this is likely filtered data)
+        sample_size = len(df)
     else:
-        sample_size = min(100, len(df))  # Larger sample for better coverage
+        sample_size = min(100, len(df))
     
     # Common exoplanet column names and their variations
-    temp_cols = ['koi_teq', 'equilibrium_temp', 'teq', 'temp', 'temperature']
-    radius_cols = ['koi_prad', 'radius', 'prad', 'planet_radius']
-    period_cols = ['koi_period', 'period', 'orbital_period']
+    temp_cols = ['koi_teq', 'equilibrium_temp', 'teq', 'temp', 'temperature', 'equilibrium_temperature_kelvin']
+    radius_cols = ['koi_prad', 'radius', 'prad', 'planet_radius', 'planet_radius_earth_radii']
+    period_cols = ['koi_period', 'period', 'orbital_period', 'orbital_period_days']
     insol_cols = ['koi_insol', 'insolation', 'stellar_flux']
     
     # Find which columns actually exist in the dataframe
@@ -164,7 +175,6 @@ def get_relevant_sample(df, question):
     
     # Create the sample
     if sort_col and sort_col in df.columns:
-        # Smart sorted sample
         try:
             if ascending:
                 sample_df = df.nsmallest(sample_size, sort_col)
@@ -175,9 +185,8 @@ def get_relevant_sample(df, question):
             
             return f"{direction} {sample_size} by {sort_col}:\n" + sample_df.to_markdown(index=False)
         except:
-            # If sorting fails, fall back to default
             pass
     
-    # Default: send the data we have (no specific sorting detected)
+    # Default: send the data we have
     sample_df = df.head(sample_size)
     return f"DATA SAMPLE ({len(sample_df)} of {len(df)} total rows):\n" + sample_df.to_markdown(index=False)

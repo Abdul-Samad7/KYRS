@@ -1,40 +1,28 @@
 import pandas as pd
-import streamlit as st
 import os
 
-@st.cache_data
 def load_data():
-    """Load the default Kepler KOI dataset."""
-    path = os.path.join("data", "kepler_koi.csv")
-    if not os.path.exists(path):
-        st.error("❌ Missing file: data/kepler_koi.csv")
-        return None
+    """Load the default Kepler KOI dataset - works with or without Streamlit."""
+    # Try multiple possible paths since we might run from different directories
+    possible_paths = [
+        os.path.join("data", "kepler_koi.csv"),           # If running from project root
+        os.path.join("..", "data", "kepler_koi.csv"),     # If running from backend/
+        os.path.join("../data", "kepler_koi.csv"),        # Alternative
+    ]
     
-    df = pd.read_csv(path)
-    return df
-
-
-def upload_dataset():
-    """Allow users to upload their own CSV dataset."""
-    st.subheader("Upload Your Dataset")
+    for path in possible_paths:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path)
+                print(f"✅ Loaded {len(df):,} rows from {path}")
+                return df
+            except Exception as e:
+                print(f"❌ Error loading {path}: {e}")
     
-    uploaded_file = st.file_uploader(
-        "Choose a CSV file",
-        type=["csv"],
-        help="Upload any exoplanet dataset in CSV format"
-    )
-    
-    if uploaded_file is not None:
-        try:
-            df = pd.read_csv(uploaded_file)
-            st.success(f"✅ Successfully loaded: {uploaded_file.name}")
-            return df
-        except Exception as e:
-            st.error(f"❌ Error reading file: {e}")
-            return None
-    else:
-        st.info("👆 Upload a CSV file to get started")
-        return None
+    print(f"❌ Could not find kepler_koi.csv")
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Tried paths: {possible_paths}")
+    return None
 
 
 def detect_column_types(df):

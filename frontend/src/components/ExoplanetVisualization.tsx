@@ -1,16 +1,26 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+
 interface ExoplanetVisualizationProps {
-  texturePath: string;
+  texturePath?: string;
   atmosphereColor?: string;
+  planetColor?: string;
   rotationSpeed?: number;
   size?: number;
+  emissiveIntensity?: number;
+  roughness?: number;
+  metalness?: number;
 }
+
 const ExoplanetVisualization: React.FC<ExoplanetVisualizationProps> = ({
-  texturePath,
+  texturePath = '',
   atmosphereColor = '#4299e1',
+  planetColor = '#4a90e2',
   rotationSpeed = 0.001,
-  size = 2
+  size = 2,
+  emissiveIntensity = 0.2,
+  roughness = 0.7,
+  metalness = 0.2
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -18,16 +28,20 @@ const ExoplanetVisualization: React.FC<ExoplanetVisualizationProps> = ({
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const planetRef = useRef<THREE.Mesh | null>(null);
   const frameId = useRef<number | null>(null);
+
   useEffect(() => {
     if (!mountRef.current) return;
+
     // Scene setup
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
     const scene = new THREE.Scene();
     sceneRef.current = scene;
+
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 5;
     cameraRef.current = camera;
+
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true
@@ -36,46 +50,63 @@ const ExoplanetVisualization: React.FC<ExoplanetVisualizationProps> = ({
     renderer.setClearColor(0x000000, 0);
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0x404040, 1);
+    const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
     scene.add(ambientLight);
+
     const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
     directionalLight.position.set(5, 3, 5);
     scene.add(directionalLight);
-    // Planet
-    const textureLoader = new THREE.TextureLoader();
+
+    // Add point light for more dramatic effect
+    const pointLight = new THREE.PointLight(atmosphereColor, 1, 100);
+    pointLight.position.set(-5, 0, 5);
+    scene.add(pointLight);
+
+    // Planet geometry
     const planetGeometry = new THREE.SphereGeometry(size, 64, 64);
-    textureLoader.load(texturePath, texture => {
-      const planetMaterial = new THREE.MeshStandardMaterial({
-        map: texture,
-        roughness: 0.7,
-        metalness: 0.2
-      });
-      const planet = new THREE.Mesh(planetGeometry, planetMaterial);
-      scene.add(planet);
-      planetRef.current = planet;
-      // Atmosphere (if color provided)
-      if (atmosphereColor) {
-        const atmosphereGeometry = new THREE.SphereGeometry(size * 1.1, 64, 64);
-        const atmosphereMaterial = new THREE.MeshStandardMaterial({
-          color: atmosphereColor,
-          transparent: true,
-          opacity: 0.3,
-          side: THREE.BackSide
-        });
-        const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
-        scene.add(atmosphere);
-      }
+
+    // Create planet material
+    const planetMaterial = new THREE.MeshStandardMaterial({
+      color: planetColor,
+      roughness: roughness,
+      metalness: metalness,
+      emissive: planetColor,
+      emissiveIntensity: emissiveIntensity
     });
+
+    const planet = new THREE.Mesh(planetGeometry, planetMaterial);
+    scene.add(planet);
+    planetRef.current = planet;
+
+    // Atmosphere
+    if (atmosphereColor) {
+      const atmosphereGeometry = new THREE.SphereGeometry(size * 1.15, 64, 64);
+      const atmosphereMaterial = new THREE.MeshStandardMaterial({
+        color: atmosphereColor,
+        transparent: true,
+        opacity: 0.25,
+        side: THREE.BackSide,
+        emissive: atmosphereColor,
+        emissiveIntensity: 0.1
+      });
+      const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+      scene.add(atmosphere);
+    }
+
     // Animation
     const animate = () => {
       if (planetRef.current) {
         planetRef.current.rotation.y += rotationSpeed;
+        planetRef.current.rotation.x += rotationSpeed * 0.1;
       }
       renderer.render(scene, camera);
       frameId.current = requestAnimationFrame(animate);
     };
+
     animate();
+
     // Handle resize
     const handleResize = () => {
       if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
@@ -85,21 +116,28 @@ const ExoplanetVisualization: React.FC<ExoplanetVisualizationProps> = ({
       cameraRef.current.updateProjectionMatrix();
       rendererRef.current.setSize(width, height);
     };
+
     window.addEventListener('resize', handleResize);
+
     // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
       if (frameId.current !== null) {
         cancelAnimationFrame(frameId.current);
       }
-      if (mountRef.current && rendererRef.current) {
+      if (mountRef.current && rendererRef.current && mountRef.current.contains(rendererRef.current.domElement)) {
         mountRef.current.removeChild(rendererRef.current.domElement);
       }
       if (sceneRef.current) {
         sceneRef.current.clear();
       }
+      renderer.dispose();
+      planetGeometry.dispose();
+      planetMaterial.dispose();
     };
-  }, [texturePath, atmosphereColor, rotationSpeed, size]);
+  }, [atmosphereColor, planetColor, rotationSpeed, size, emissiveIntensity, roughness, metalness]);
+
   return <div ref={mountRef} className="w-full h-full min-h-[300px]" />;
 };
+
 export default ExoplanetVisualization;
