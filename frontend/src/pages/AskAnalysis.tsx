@@ -18,7 +18,7 @@ const AskAnalysis: React.FC = () => {
     "Which planets have the shortest orbital periods?",
     "What's the average radius of candidate planets?",
     "Show me planets in the habitable zone",
-    "Compare temperature distributions between CONFIRMED and CANDIDATE",
+    "What are the average and median equilibrium temperatures of the planets in this dataset?",
   ];
 
   const handleAsk = async (e: React.FormEvent) => {
