@@ -33,3 +33,5 @@ attrs>=25.1.0
 
 # For building wheels on Mac
 cmake>=3.30.0
+
+tabulate
