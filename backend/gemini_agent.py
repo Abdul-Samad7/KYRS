@@ -1,7 +1,8 @@
 from google import genai
 import streamlit as st
 
-client = genai.Client(api_key=st.secrets["GEMINI"]["API_KEY"])
+# Use consistent API key path
+client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
 def ask_gemini(question, context_df):
     """Ask Gemini a question using the filtered data as context."""
