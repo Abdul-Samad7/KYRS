@@ -156,7 +156,7 @@ const PlanetDetails: React.FC = () => {
               <div className="flex items-center space-x-1 bg-gray-900/80 rounded-full px-3 py-1">
                 <div className={`h-2 w-2 rounded-full ${getHabitabilityColor(habitabilityScore)}`}></div>
                 <span className="text-sm font-medium text-white">
-                  {habitabilityScore}% Habitable
+                  {habitabilityScore}% Habitability
                 </span>
               </div>
             </div>

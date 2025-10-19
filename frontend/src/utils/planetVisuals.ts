@@ -46,7 +46,7 @@ export function generatePlanetVisuals(
     color = '#ffb347'; // Light orange
     atmosphereColor = '#ffd700';
     emissiveIntensity = 0.4;
-    description = 'Hot rocky world';
+    description = 'Hot Rocky World';
   } else if (temperature >= 250 && temperature <= 350) {
     // Habitable Zone! (Earth-like)
     if (radius && radius >= 0.8 && radius <= 1.5) {
@@ -58,12 +58,12 @@ export function generatePlanetVisuals(
       color = '#5a8db8'; // Blue (Water world)
       atmosphereColor = '#89CFF0';
       emissiveIntensity = 0.2;
-      description = 'Ocean world candidate';
+      description = 'Ocean World Candidate';
     } else {
       color = '#8b7355'; // Brown (Mars-like)
       atmosphereColor = '#d4a574';
       emissiveIntensity = 0.15;
-      description = 'Temperate rocky planet';
+      description = 'Temperate Rocky Planet';
     }
   } else if (temperature > 100 && temperature < 250) {
     // Cold Planet
@@ -71,7 +71,7 @@ export function generatePlanetVisuals(
     atmosphereColor = '#add8e6';
     emissiveIntensity = 0.1;
     roughness = 0.3; // More icy
-    description = 'Cold icy world';
+    description = 'Cold Icy World';
   } else {
     // Frozen / Very Cold
     color = '#e0ffff'; // Light cyan (icy)
@@ -79,7 +79,7 @@ export function generatePlanetVisuals(
     emissiveIntensity = 0.05;
     roughness = 0.2; // Very icy/smooth
     metalness = 0.5; // Reflective ice
-    description = 'Frozen ice world';
+    description = 'Frozen Ice World';
   }
 
   // Adjust based on radius if available
@@ -93,7 +93,7 @@ export function generatePlanetVisuals(
       // Neptune-like
       color = '#4169e1'; // Royal blue
       atmosphereColor = '#6495ed';
-      description = 'Neptune-like ice giant';
+      description = 'Neptune-like Ice Giant';
       roughness = 0.8;
     }
   }

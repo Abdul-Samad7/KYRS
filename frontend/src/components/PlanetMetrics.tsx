@@ -11,14 +11,26 @@ interface PlanetMetricsProps {
   description: string;
   data: MetricData[];
   comparisonMode?: boolean;
+  showUnits?: boolean;
 }
 const PlanetMetrics: React.FC<PlanetMetricsProps> = ({
   title,
   description,
   data,
-  comparisonMode = false
+  comparisonMode = false,
+  showUnits = true
 }) => {
-  const formatTooltip = (value: number, name: string, props: any) => {
+  // detect a common unit across all data points (if any)
+  const units = data.map(d => d.unit).filter(Boolean);
+  const commonUnit = units.length > 0 && new Set(units).size === 1 ? units[0] : undefined;
+  // X-axis tickFormatter: if the tick matches a metric name, append its unit
+  const xTickFormatter = (tick: any) => {
+    if (!showUnits) return String(tick);
+    const m = data.find(d => d.name === tick);
+    if (m && m.unit) return `${tick} (${m.unit})`;
+    return String(tick);
+  };
+  const formatTooltip = (value: number, name: string) => {
     const metric = data.find(d => {
       if (name === 'value') return d.value === value;
       if (name === 'earthValue') return d.earthValue === value;
@@ -28,7 +40,7 @@ const PlanetMetrics: React.FC<PlanetMetricsProps> = ({
   };
   return <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
       <h3 className="text-xl font-bold text-white">{title}</h3>
-      <p className="mt-1 text-gray-300 text-sm">{description}</p>
+      <p className="mt-1 text-gray-300 text-sm">{description}{commonUnit ? ` • ${commonUnit}` : ''}</p>
       <div className="mt-6 h-64">
         <ResponsiveContainer width="100%" height="100%">
           {comparisonMode ? <BarChart data={data} margin={{
@@ -41,10 +53,10 @@ const PlanetMetrics: React.FC<PlanetMetricsProps> = ({
               <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} tick={{
             fill: '#9CA3AF',
             fontSize: 12
-          }} />
+          }} tickFormatter={xTickFormatter} />
               <YAxis tick={{
             fill: '#9CA3AF'
-          }} />
+          }} tickFormatter={(val: number) => (showUnits && commonUnit) ? `${val} ${commonUnit}` : String(val)} />
               <Tooltip formatter={formatTooltip} contentStyle={{
             backgroundColor: '#1F2937',
             borderColor: '#4B5563'
@@ -62,10 +74,10 @@ const PlanetMetrics: React.FC<PlanetMetricsProps> = ({
               <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} tick={{
             fill: '#9CA3AF',
             fontSize: 12
-          }} />
+          }} tickFormatter={xTickFormatter} />
               <YAxis tick={{
             fill: '#9CA3AF'
-          }} />
+          }} tickFormatter={(val: number) => (showUnits && commonUnit) ? `${val} ${commonUnit}` : String(val)} />
               <Tooltip formatter={formatTooltip} contentStyle={{
             backgroundColor: '#1F2937',
             borderColor: '#4B5563'

@@ -4,6 +4,40 @@ import plotly.graph_objects as go
 import pandas as pd
 from backend.gemini_agent import ask_gemini
 
+# readable column names with units
+COLUMN_LABELS = {
+    "radius": "Radius (Earth radii)",
+    "planet_radius_earth_radii": "Radius (Earth radii)",
+    "koi_prad": "Radius (Earth radii)",
+    "temperature": "Temperature (K)",
+    "equilibrium_temperature_kelvin": "Temperature (K)",
+    "koi_teq": "Temperature (K)",
+    "koi_period": "Orbital Period (days)",
+    "orbital_period_days": "Orbital Period (days)",
+    "koi_insol": "Insolation Flux (× Earth flux)",
+    "insolation_flux_earth_flux": "Insolation Flux (× Earth flux)",
+    "stellar_effective_temperature_kelvin": "Stellar Temperature (K)",
+    "stellar_radius_solar_radii": "Stellar Radius (Solar radii)",
+}
+
+def pretty_label(col):
+    """Return human-friendly label with unit if available."""
+    if not isinstance(col, str):
+        return str(col)
+    return COLUMN_LABELS.get(col.lower(), col.replace("_", " ").title())
+
+def auto_log_axis(df, col):
+    """Return 'log' if data spans multiple orders of magnitude, else 'linear'."""
+    try:
+        vals = df[col].dropna().abs()
+        if len(vals) > 0:
+            ratio = vals.max() / max(vals.min(), 1e-9)
+            if ratio > 1_000:
+                return "log"
+    except Exception:
+        pass
+    return "linear"
+
 
 def render(df):
     st.header("🌍 Habitability Analysis")
@@ -19,10 +53,8 @@ def render(df):
     
     if not temp_cols or not radius_cols:
         st.warning("⚠️ Could not auto-detect temperature and radius columns. Please select them manually.")
-        
         col1, col2 = st.columns(2)
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-        
         with col1:
             temp_col = st.selectbox("Select Temperature Column", numeric_cols)
         with col2:
@@ -36,7 +68,6 @@ def render(df):
     
     # Habitability criteria
     st.subheader("⚙️ Habitability Criteria")
-    
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -53,7 +84,6 @@ def render(df):
     
     with col3:
         st.markdown("**🎯 Additional Filters**")
-        # Try to find disposition column
         disposition_cols = [col for col in df.columns if 'disposition' in col.lower() or 'status' in col.lower()]
         if disposition_cols:
             disp_col = disposition_cols[0]
@@ -74,11 +104,8 @@ def render(df):
         (habitable[radius_col] >= radius_min) &
         (habitable[radius_col] <= radius_max)
     ]
-    
     if selected_disp and disposition_cols:
         habitable = habitable[habitable[disp_col].isin(selected_disp)]
-    
-    # Remove rows with null values in key columns
     habitable = habitable.dropna(subset=[temp_col, radius_col])
     
     # Results
@@ -86,72 +113,109 @@ def render(df):
     st.subheader(f"🎯 Results: {len(habitable)} Potentially Habitable Candidates")
     
     if len(habitable) > 0:
-        # Visualization
         fig = go.Figure()
         
-        # Add Earth reference point
+        # Earth reference
         fig.add_trace(go.Scatter(
             x=[288],
             y=[1.0],
             mode='markers',
-            marker=dict(size=15, color='lightblue', symbol='star', line=dict(width=2, color='white')),
+            marker=dict(size=20, color='lightblue', symbol='star', line=dict(width=2, color='white')),
             name='Earth',
             text=['Earth'],
             hovertemplate='<b>Earth</b><br>Temp: 288K<br>Radius: 1.0<extra></extra>'
         ))
         
-        # Add habitable zone
+        # Habitable planets
         fig.add_trace(go.Scatter(
             x=habitable[temp_col],
             y=habitable[radius_col],
             mode='markers',
-            marker=dict(size=8, color='green', opacity=0.6),
+            marker=dict(size=12, color='green', opacity=0.75),
             name='Potentially Habitable',
             text=habitable.index,
             hovertemplate='<b>Index %{text}</b><br>Temp: %{x:.1f}K<br>Radius: %{y:.2f}<extra></extra>'
         ))
         
-        # Add all other planets for context
+        # Other planets
         other = df[~df.index.isin(habitable.index)].dropna(subset=[temp_col, radius_col])
         if len(other) > 0:
             fig.add_trace(go.Scatter(
                 x=other[temp_col],
                 y=other[radius_col],
                 mode='markers',
-                marker=dict(size=5, color='gray', opacity=0.3),
+                marker=dict(size=7, color='gray', opacity=0.35),
                 name='Other Planets',
                 hovertemplate='Temp: %{x:.1f}K<br>Radius: %{y:.2f}<extra></extra>'
             ))
         
-        fig.update_layout(
+        # Auto scaling logic 🔍
+        x_axis_type = auto_log_axis(df, temp_col)
+        y_axis_type = auto_log_axis(df, radius_col)
+        # compute sensible axis ranges (only for linear axes)
+        xaxis_range = None
+        yaxis_range = None
+        try:
+            if x_axis_type == 'linear':
+                x_min = float(df[temp_col].dropna().min()) if len(df[temp_col].dropna())>0 else 0.0
+                x_max = float(df[temp_col].dropna().max()) if len(df[temp_col].dropna())>0 else 0.0
+                x_min = min(x_min, 288.0)
+                x_max = max(x_max, 288.0)
+                if x_max == x_min:
+                    pad = x_max * 0.1 if x_max != 0 else 1.0
+                else:
+                    pad = (x_max - x_min) * 0.12
+                xaxis_range = [x_min - pad, x_max + pad]
+
+            if y_axis_type == 'linear':
+                y_min = float(df[radius_col].dropna().min()) if len(df[radius_col].dropna())>0 else 0.0
+                y_max = float(df[radius_col].dropna().max()) if len(df[radius_col].dropna())>0 else 0.0
+                y_min = min(y_min, 1.0)
+                y_max = max(y_max, 1.0)
+                if y_max == y_min:
+                    pad = y_max * 0.1 if y_max != 0 else 0.5
+                else:
+                    pad = (y_max - y_min) * 0.12
+                # avoid negative lower bound for radius
+                lower = max(0.0, y_min - pad)
+                yaxis_range = [lower, y_max + pad]
+        except Exception:
+            xaxis_range = None
+            yaxis_range = None
+
+        layout_kwargs = dict(
             title="Habitability Zone Analysis",
-            xaxis_title=f"{temp_col} (K)",
-            yaxis_title=f"{radius_col} (Earth Radii)",
+            xaxis_title=pretty_label(temp_col),
+            yaxis_title=pretty_label(radius_col),
             template="plotly_dark",
-            hovermode='closest'
+            hovermode='closest',
+            xaxis_type=x_axis_type,
+            yaxis_type=y_axis_type
         )
+        if xaxis_range is not None:
+            layout_kwargs['xaxis_range'] = xaxis_range
+        if yaxis_range is not None:
+            layout_kwargs['yaxis_range'] = yaxis_range
+
+        fig.update_layout(**layout_kwargs)
         
         st.plotly_chart(fig, use_container_width=True)
         
         # Top candidates
         st.subheader("🏆 Top Candidates")
-        
-        # Calculate Earth similarity score
         habitable['earth_similarity_score'] = (
             1 / (1 + abs(habitable[temp_col] - 288) / 288) * 
             1 / (1 + abs(habitable[radius_col] - 1.0))
         )
-        
         top_candidates = habitable.nlargest(10, 'earth_similarity_score')
         st.dataframe(
             top_candidates.style.background_gradient(subset=['earth_similarity_score'], cmap='Greens'),
             use_container_width=True
         )
         
-        # AI Analysis
+        # AI analysis
         st.markdown("---")
         st.subheader("🤖 AI-Assisted Analysis")
-        
         if st.button("🧠 Analyze These Candidates with AI", type="primary"):
             with st.spinner("Analyzing candidates..."):
                 analysis_query = f"""
@@ -164,8 +228,7 @@ def render(df):
                 3. What additional data would help vet these candidates
                 4. Any concerns or limitations
                 """
-                
-                response = ask_gemini_dynamic(analysis_query, top_candidates, include_full_sample=True)
+                response = ask_gemini(analysis_query, top_candidates)
                 st.markdown(response)
         
         # Export

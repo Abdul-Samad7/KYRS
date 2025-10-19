@@ -68,7 +68,7 @@ const ExoplanetCard: React.FC<ExoplanetCardProps> = ({
               <div className={`relative w-16 h-16 rounded-full border-4 ${colors.border} ${colors.bg} flex items-center justify-center ${colors.glow} shadow-lg`}>
                 <span className="text-white font-bold text-lg">{habitabilityScore}</span>
               </div>
-              <span className="text-xs text-gray-400 mt-1">Habitable</span>
+              <span className="text-xs text-gray-400 mt-1">Habitability</span>
             </div>
           </div>
 
