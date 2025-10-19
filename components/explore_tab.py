@@ -8,7 +8,8 @@ def render(df):
     with col1:
         dispositions = st.multiselect(
             "Planet Disposition",
-            options=sorted(df["koi_disposition"].dropna().unique()),
+            # Updated column name
+            options=sorted(df["disposition_using_kepler_data"].dropna().unique()),
             default=["CONFIRMED"]
         )
     with col2:
@@ -16,16 +17,28 @@ def render(df):
     with col3:
         radius_range = st.slider("Radius (Earth radii)", 0.5, 4.0, (0.5, 2.0))
 
+    # Updated all column names
     filtered = df[
-        (df["koi_disposition"].isin(dispositions)) &
-        (df["koi_teq"].between(*temp_range)) &
-        (df["koi_prad"].between(*radius_range))
+        (df["disposition_using_kepler_data"].isin(dispositions)) &
+        (df["equilibrium_temperature_kelvin"].between(*temp_range)) &
+        (df["planet_radius_earth_radii"].between(*radius_range))
     ]
 
     st.markdown(f"**Showing {len(filtered):,} planets**")
 
-    fig = px.scatter(filtered, x="koi_teq", y="koi_prad",
-                     color="koi_disposition", title="Temperature vs Radius",
-                     template="plotly_dark")
+    # Updated column names in plot
+    fig = px.scatter(
+        filtered, 
+        x="equilibrium_temperature_kelvin", 
+        y="planet_radius_earth_radii",
+        color="disposition_using_kepler_data", 
+        title="Temperature vs Radius",
+        labels={
+            "equilibrium_temperature_kelvin": "Equilibrium Temperature (K)",
+            "planet_radius_earth_radii": "Planet Radius (Earth Radii)",
+            "disposition_using_kepler_data": "Disposition"
+        },
+        template="plotly_dark"
+    )
     st.plotly_chart(fig, use_container_width=True)
     st.dataframe(filtered.head(20))
