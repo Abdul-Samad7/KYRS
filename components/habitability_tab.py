@@ -2,7 +2,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-from backend.gemini_agent import ask_gemini_dynamic
+from backend.gemini_agent import ask_gemini
 
 
 def render(df):

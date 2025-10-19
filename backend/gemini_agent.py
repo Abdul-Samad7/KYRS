@@ -1,134 +1,183 @@
 from google import genai
 import streamlit as st
 import pandas as pd
+import numpy as np
 
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
-
-def analyze_dataset_structure(df):
-    """Automatically analyze and describe the dataset structure."""
+def ask_gemini(question, context_df, style="brief"):
+    """Ask Gemini a question using intelligent data sampling and statistics."""
     
-    analysis = {
-        "total_rows": len(df),
-        "total_columns": len(df.columns),
-        "column_info": [],
-        "numeric_columns": [],
-        "categorical_columns": []
-    }
+    # Validate input
+    if context_df is None or len(context_df) == 0:
+        return "⚠️ No data available to answer this question. Try adjusting your filters."
     
-    for col in df.columns:
-        col_info = {
-            "name": col,
-            "type": str(df[col].dtype),
-            "non_null": df[col].count(),
-            "null_count": df[col].isnull().sum(),
-        }
-        
-        if pd.api.types.is_numeric_dtype(df[col]):
-            col_info["min"] = df[col].min()
-            col_info["max"] = df[col].max()
-            col_info["mean"] = df[col].mean()
-            col_info["median"] = df[col].median()
-            analysis["numeric_columns"].append(col)
-        else:
-            col_info["unique_values"] = df[col].nunique()
-            col_info["sample_values"] = df[col].dropna().unique()[:5].tolist()
-            analysis["categorical_columns"].append(col)
-        
-        analysis["column_info"].append(col_info)
+    # Strategy: Send statistics + relevant samples based on question
+    stats_summary = generate_statistics(context_df)
+    relevant_sample = get_relevant_sample(context_df, question)
     
-    return analysis
-
-
-def create_dataset_context(df, include_full_sample=True):
-    """Create rich context about the dataset for the AI."""
-    
-    analysis = analyze_dataset_structure(df)
-    
-    context = f"""
-**DATASET OVERVIEW:**
-- Total rows: {analysis['total_rows']:,}
-- Total columns: {analysis['total_columns']}
-
-**COLUMN DETAILS:**
-"""
-    
-    for col_info in analysis['column_info']:
-        context += f"\n• **{col_info['name']}** ({col_info['type']})"
-        context += f"\n  - Non-null: {col_info['non_null']:,} / Null: {col_info['null_count']:,}"
-        
-        if 'min' in col_info:
-            context += f"\n  - Range: {col_info['min']:.4f} to {col_info['max']:.4f}"
-            context += f"\n  - Mean: {col_info['mean']:.4f}, Median: {col_info['median']:.4f}"
-        elif 'unique_values' in col_info:
-            context += f"\n  - Unique values: {col_info['unique_values']}"
-            context += f"\n  - Sample values: {', '.join(map(str, col_info['sample_values']))}"
-    
-    # Add data sample if requested
-    if include_full_sample:
-        sample_size = min(30, len(df))
-        context += f"\n\n**DATA SAMPLE ({sample_size} rows):**\n"
-        context += df.sample(sample_size).to_markdown(index=False)
-    
-    # Add statistical summary for numeric columns
-    if analysis['numeric_columns']:
-        context += "\n\n**STATISTICAL SUMMARY:**\n"
-        context += df[analysis['numeric_columns']].describe().to_markdown()
-    
-    return context
-
-
-def ask_gemini_dynamic(question, df, include_full_sample=True):
-    """
-    Dynamic AI assistant that works with ANY exoplanet dataset.
-    Automatically adapts to the dataset structure.
-    """
-    
-    # Create context about the dataset
-    dataset_context = create_dataset_context(df, include_full_sample)
+    # Adjust instructions based on style
+    if style == "brief":
+        style_instructions = """
+- Give CONCISE, direct answers (2-4 sentences max)
+- List only top 3-5 items unless asked for more
+- Use bullet points, keep them SHORT
+- Skip lengthy explanations"""
+        max_tokens = 500
+    else:  # detailed
+        style_instructions = """
+- Provide thorough, informative answers
+- Include relevant context and explanations
+- List up to 10 items when relevant
+- Explain interesting patterns or trends you notice"""
+        max_tokens = 1000
     
     prompt = f"""
-You are an expert exoplanet scientist and data analyst helping researchers explore and understand exoplanet datasets.
+You are an expert astronomy assistant specializing in exoplanet research and analysis.
+You're analyzing data from NASA's Kepler mission and other exoplanet surveys.
 
-{dataset_context}
+DATASET STATISTICS (based on {len(context_df)} rows):
+{stats_summary}
 
-**RESEARCHER'S QUESTION:** {question}
+RELEVANT DATA SAMPLE:
+{relevant_sample}
 
-**YOUR ROLE:**
-- Help scientists understand their data
-- Identify potentially habitable planets
-- Explain column meanings in astronomical context
-- Provide statistical insights
-- Suggest relevant analyses
-- Be conversational but scientifically accurate
+INSTRUCTIONS:
+{style_instructions}
+- Search through the sample data carefully to find what the user is asking about
+- The statistics reflect the COMPLETE filtered dataset of {len(context_df)} rows
+- Use astronomical terminology appropriately (e.g., Earth radii, Kelvin, stellar flux)
+- When discussing planets, mention their KOI/Kepler IDs and key characteristics
+- Context: KOI = Kepler Object of Interest, dispositions can be CONFIRMED, CANDIDATE, or FALSE POSITIVE
+- If you cannot find the specific object/planet they're asking about in the sample, say so clearly
+- If the data doesn't contain the answer, say so clearly
 
-**GUIDELINES:**
-- Always base answers on the actual data provided
-- When discussing habitability, consider: temperature, radius, stellar properties
-- If the question requires information not in the dataset, say so clearly
-- Provide specific numbers and examples from the data
-- Suggest follow-up analyses when relevant
-- For Earth-like planets, look for: ~1 Earth radius, ~250-350K temperature
-
-Provide a clear, helpful answer:
+QUESTION: {question}
 """
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
+            model="gemini-2.5-flash",  # Correct model name
+            contents=prompt,
+            config={
+                "temperature": 0.3,
+                "max_output_tokens": max_tokens,
+            }
         )
         return response.text
     except Exception as e:
-        return f"⚠️ Error communicating with Gemini: {e}\n\nPlease check your API key in .streamlit/secrets.toml"
+        return f"⚠️ Gemini Error: {e}"
 
 
-# Legacy function for backward compatibility
-def ask_gemini_smart(question, df):
-    """Redirect to dynamic version."""
-    return ask_gemini_dynamic(question, df, include_full_sample=True)
+def generate_statistics(df):
+    """Generate comprehensive statistics about ANY dataset."""
+    stats_parts = []
+    
+    # Overall count
+    stats_parts.append(f"Total rows: {len(df)}")
+    stats_parts.append(f"Total columns: {len(df.columns)}")
+    
+    # Analyze each column
+    for col in df.columns:
+        dtype = df[col].dtype
+        non_null_count = df[col].notna().sum()
+        
+        stats_parts.append(f"\n{col}:")
+        stats_parts.append(f"  - Type: {dtype}")
+        stats_parts.append(f"  - Non-null: {non_null_count}/{len(df)}")
+        
+        # Numeric columns: show statistics
+        if pd.api.types.is_numeric_dtype(dtype):
+            if non_null_count > 0:
+                stats_parts.append(f"  - Min: {df[col].min()}")
+                stats_parts.append(f"  - Max: {df[col].max()}")
+                stats_parts.append(f"  - Mean: {df[col].mean():.2f}")
+                stats_parts.append(f"  - Median: {df[col].median():.2f}")
+        
+        # Categorical/Object columns: show value counts
+        elif pd.api.types.is_object_dtype(dtype) or pd.api.types.is_categorical_dtype(dtype):
+            unique_count = df[col].nunique()
+            stats_parts.append(f"  - Unique values: {unique_count}")
+            
+            # Show top values if not too many unique values
+            if unique_count <= 10 and non_null_count > 0:
+                top_values = df[col].value_counts().head(5)
+                stats_parts.append(f"  - Top values:")
+                for val, count in top_values.items():
+                    stats_parts.append(f"    • {val}: {count}")
+    
+    return "\n".join(stats_parts)
 
 
-def ask_gemini(question, context_df):
-    """Legacy function for backward compatibility."""
-    return ask_gemini_dynamic(question, context_df, include_full_sample=False)
+def get_relevant_sample(df, question):
+    """Get a relevant sample based on the question asked - optimized for exoplanet data."""
+    question_lower = question.lower()
+    
+    # Adjust sample size based on dataset size and query type
+    # For specific object queries, we want more data for Gemini to search through
+    if len(df) <= 100:
+        sample_size = len(df)  # Just send everything if small
+    elif len(df) <= 300:
+        sample_size = len(df)  # Send all if medium-sized (this is likely filtered data)
+    else:
+        sample_size = min(100, len(df))  # Larger sample for better coverage
+    
+    # Common exoplanet column names and their variations
+    temp_cols = ['koi_teq', 'equilibrium_temp', 'teq', 'temp', 'temperature']
+    radius_cols = ['koi_prad', 'radius', 'prad', 'planet_radius']
+    period_cols = ['koi_period', 'period', 'orbital_period']
+    insol_cols = ['koi_insol', 'insolation', 'stellar_flux']
+    
+    # Find which columns actually exist in the dataframe
+    temp_col = next((col for col in temp_cols if col in df.columns), None)
+    radius_col = next((col for col in radius_cols if col in df.columns), None)
+    period_col = next((col for col in period_cols if col in df.columns), None)
+    insol_col = next((col for col in insol_cols if col in df.columns), None)
+    
+    # Keywords that suggest sorting
+    high_keywords = ['highest', 'hottest', 'largest', 'biggest', 'maximum', 'max', 'top', 'most']
+    low_keywords = ['lowest', 'coldest', 'smallest', 'minimum', 'min', 'bottom', 'least']
+    
+    # Determine sort column and direction based on question
+    sort_col = None
+    ascending = True
+    
+    # Temperature-related queries
+    if any(word in question_lower for word in ['temp', 'temperature', 'hot', 'cold', 'warm', 'cool']):
+        sort_col = temp_col
+        ascending = 'cold' in question_lower or 'cool' in question_lower or any(w in question_lower for w in low_keywords)
+    
+    # Size/radius queries
+    elif any(word in question_lower for word in ['size', 'radius', 'large', 'small', 'big', 'tiny']):
+        sort_col = radius_col
+        ascending = 'small' in question_lower or 'tiny' in question_lower or any(w in question_lower for w in low_keywords)
+    
+    # Orbital period queries
+    elif any(word in question_lower for word in ['period', 'orbit', 'year', 'day']):
+        sort_col = period_col
+        ascending = 'short' in question_lower or any(w in question_lower for w in low_keywords)
+    
+    # Insolation queries
+    elif any(word in question_lower for word in ['insolation', 'flux', 'stellar']):
+        sort_col = insol_col
+        ascending = any(w in question_lower for w in low_keywords)
+    
+    # Create the sample
+    if sort_col and sort_col in df.columns:
+        # Smart sorted sample
+        try:
+            if ascending:
+                sample_df = df.nsmallest(sample_size, sort_col)
+                direction = "LOWEST"
+            else:
+                sample_df = df.nlargest(sample_size, sort_col)
+                direction = "HIGHEST"
+            
+            return f"{direction} {sample_size} by {sort_col}:\n" + sample_df.to_markdown(index=False)
+        except:
+            # If sorting fails, fall back to default
+            pass
+    
+    # Default: send the data we have (no specific sorting detected)
+    sample_df = df.head(sample_size)
+    return f"DATA SAMPLE ({len(sample_df)} of {len(df)} total rows):\n" + sample_df.to_markdown(index=False)
