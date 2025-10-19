@@ -419,3 +419,59 @@ if __name__ == '__main__':
     print("="*50 + "\n")
     
     app.run(debug=True, host='0.0.0.0', port=5001)
+
+#THIS IS ALL FROM SAMAD
+from backend.planet_image_gen import PlanetImageGenerator
+import os
+
+# Initialize (do this once at startup)
+planet_generator = PlanetImageGenerator()
+
+# Serve static images
+@app.route('/static/planet_images/<path:filename>')
+def serve_planet_image(filename):
+    from flask import send_from_directory
+    return send_from_directory('static/planet_images', filename)
+
+@app.route('/api/generate-planet-image/<planet_id>', methods=['POST'])
+def generate_planet_image(planet_id):
+    """Generate AI image for a specific planet"""
+    if df is None:
+        return jsonify({'error': 'Data not loaded'}), 500
+    
+    try:
+        # Get planet data
+        planet_data = df[df['kepler_id'] == int(planet_id)].iloc[0].to_dict()
+        
+        # Generate image
+        result = planet_generator.generate_planet_image(planet_data)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'image_url': result['image_url'],
+                'prompt': result['prompt'],
+                'planet_type': result['planet_type']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result['error']
+            }), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/planet-visuals/<planet_id>', methods=['GET'])
+def get_planet_visuals(planet_id):
+    """Get Three.js visual properties without generating image"""
+    if df is None:
+        return jsonify({'error': 'Data not loaded'}), 500
+    
+    try:
+        planet_data = df[df['kepler_id'] == int(planet_id)].iloc[0].to_dict()
+        visual_props = planet_generator.get_visual_properties(planet_data)
+        
+        return jsonify(visual_props)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
