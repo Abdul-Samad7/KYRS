@@ -25,7 +25,6 @@ streamlit-env/
 Thumbs.db
 
 # === Data Files ===
-data/*.csv
 !data/README.md  # keep documentation if you add one
 
 # === Logs & Temp ===
