@@ -1,3 +1,2 @@
-# KYRS
-HackTX project 2025
+# KYRS - HACKTX 2025
 ExoExplorer is a space, AI driven app that utilizes ML techniques to bring NASA, top-research level science on exploring other habitable planets to a format in which the average person can interact with. A full stack app complete with a gemini-powered AI chat feature, it allows the user to interact with the planet's information, being able to look at key stats and figures about the planets. User's can ask questions such as "What is the most habitable planet in this dataset?", "Which habitable exoplanet has the least severe temperature and surface conditions?", and "Which exoplanet is the most easily reachable in terms of time and resources?". This project opens up the realm of astronomical exploration to everyone. 
